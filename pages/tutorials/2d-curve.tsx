@@ -1,6 +1,8 @@
 import Head from "next/head";
 import { useEffect, useState } from "react";
 
+import * as tf from "@tensorflow/tfjs";
+
 import {
   Chart as ChartJS,
   LinearScale,
@@ -10,7 +12,6 @@ import {
   Legend,
   ChartData,
   ScatterDataPoint,
-  ChartDataset,
 } from "chart.js";
 import { ChartProps, Scatter } from "react-chartjs-2";
 
@@ -35,23 +36,37 @@ type ChartDataType = ScatterDataPoint & {
   y: number;
 };
 
+const dataUrl = "https://storage.googleapis.com/tfjs-tutorials/carsData.json";
+
 const TwoDCurvePage = () => {
-  const [data, setData] = useState<ChartDataType[]>();
+  const [data, setData] = useState<Array<CarType>>();
   const [chartData, setChartData] = useState<ChartType["data"]>();
   const [chartOpt, setChartOpt] = useState<ChartType["options"]>();
 
+  /**
+   *
+   * @returns {tf.Sequential} model
+   */
+  const createModel = () => {
+    // Create a sequential model
+    const model = tf.sequential();
+
+    // Add a single input layer
+    model.add(tf.layers.dense({ inputShape: [1], units: 1, useBias: true }));
+
+    // Add an output layer
+    model.add(tf.layers.dense({ units: 1, useBias: true }));
+
+    model.summary();
+    return model;
+  };
+
   const getData = async () => {
-    await fetch("https://storage.googleapis.com/tfjs-tutorials/carsData.json")
+    await fetch(dataUrl)
       .then((res) => res.json())
       .then((res) => {
         if (res) {
-          const cleaned = res
-            .map((car: CarType) => ({
-              x: car.Miles_per_Gallon,
-              y: car.Horsepower,
-            }))
-            .filter((car: ChartDataType) => car.x != null && car.y != null);
-          setData(cleaned);
+          setData(res);
         }
       });
   };
@@ -63,6 +78,13 @@ const TwoDCurvePage = () => {
 
   useEffect(() => {
     if (data) {
+      const cleaned = data
+        .map((car: CarType) => ({
+          x: car.Miles_per_Gallon,
+          y: car.Horsepower,
+        }))
+        .filter((car: ChartDataType) => car.x != null && car.y != null);
+
       const chOpt: ChartType["options"] = {
         responsive: true,
         scales: {
@@ -71,16 +93,16 @@ const TwoDCurvePage = () => {
               text: "Horsepower",
               display: true,
             },
-            min: Math.min(...data.map((x) => x.x)) - 5,
-            max: Math.max(...data.map((x) => x.x)) + 5,
+            min: Math.min(...cleaned.map((x) => x.x)) - 5,
+            max: Math.max(...cleaned.map((x) => x.x)) + 5,
           },
           y: {
             title: {
               text: "MPG",
               display: true,
             },
-            min: Math.min(...data.map((y) => y.y)) - 5,
-            max: Math.max(...data.map((y) => y.y)) + 5,
+            min: Math.min(...cleaned.map((y) => y.y)) - 5,
+            max: Math.max(...cleaned.map((y) => y.y)) + 5,
           },
         },
       };
@@ -91,11 +113,13 @@ const TwoDCurvePage = () => {
         datasets: [
           {
             label: "car",
-            data,
+            data: cleaned,
           },
         ],
       };
       setChartData(chData);
+      console.log("@@@@@ summary");
+      const model = createModel();
     }
   }, [data]);
 
@@ -107,7 +131,7 @@ const TwoDCurvePage = () => {
       <div
         style={{
           width: "90vw",
-          height: "80vh",
+          height: "40vh",
           margin: "0 auto",
           background: "#ddd",
         }}
