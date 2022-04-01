@@ -11,15 +11,22 @@ import {
   Tooltip,
   Legend,
   ChartData,
-  ScatterDataPoint,
+  CategoryScale,
 } from "chart.js";
-import { ChartProps, Scatter } from "react-chartjs-2";
+import { History } from "@tensorflow/tfjs";
+import DataGraph from "../../components/tutorials/2d-curve/data-graph";
+import { Line } from "react-chartjs-2";
 
-ChartJS.register(LinearScale, PointElement, LineElement, Tooltip, Legend);
+ChartJS.register(
+  LinearScale,
+  CategoryScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend
+);
 
-type ChartType = ChartProps<"scatter">;
-
-type CarType = {
+export type CarType = {
   Name: string;
   Miles_per_Gallon?: number;
   Cylinders?: number;
@@ -31,23 +38,18 @@ type CarType = {
   Origin?: string;
 };
 
-type ChartDataType = ScatterDataPoint & {
-  x: number;
-  y: number;
-};
-
 const dataUrl = "https://storage.googleapis.com/tfjs-tutorials/carsData.json";
 
 const TwoDCurvePage = () => {
   const [data, setData] = useState<Array<CarType>>();
-  const [chartData, setChartData] = useState<ChartType["data"]>();
-  const [chartOpt, setChartOpt] = useState<ChartType["options"]>();
+  const [hist, setHist] = useState<History>();
+
+  const [chartData, setChartData] = useState<ChartData<"line">>();
 
   /**
-   *
-   * @returns {tf.Sequential} model
+   * create sequence model
    */
-  const createModel = () => {
+  const createModel = (): tf.Sequential => {
     // Create a sequential model
     const model = tf.sequential();
 
@@ -61,6 +63,78 @@ const TwoDCurvePage = () => {
     return model;
   };
 
+  /**
+   * Convert the input data to tensors that we can use for machine
+   * learning. We will also do the important best practices of _shuffling_
+   * the data and _normalizing_ the data
+   * MPG on the y-axis.
+   */
+  const convertToTf = (data: Array<CarType>) => {
+    // Wrapping these calculations in a tidy will dispose any
+    // intermediate tensors.
+    return tf.tidy(() => {
+      // Step 1. Shuffle the data
+      tf.util.shuffle(data);
+
+      // Step 2. Convert data to Tensor
+      const inputs = data.map((d) => d.Horsepower);
+      const labels = data.map((d) => d.Miles_per_Gallon);
+
+      const inputTensor = tf.tensor2d(inputs, [inputs.length, 1]);
+      const labelTensor = tf.tensor2d(labels, [labels.length, 1]);
+
+      //Step 3. Normalize the data to the range 0 - 1 using min-max scaling
+      const inputMax = inputTensor.max();
+      const inputMin = inputTensor.min();
+      const labelMax = labelTensor.max();
+      const labelMin = labelTensor.min();
+
+      const normalizedInputs = inputTensor
+        .sub(inputMin)
+        .div(inputMax.sub(inputMin));
+      const normalizedLabels = labelTensor
+        .sub(labelMin)
+        .div(labelMax.sub(labelMin));
+
+      return {
+        inputs: normalizedInputs,
+        labels: normalizedLabels,
+        // Return the min/max bounds so we can use them later.
+        inputMax,
+        inputMin,
+        labelMax,
+        labelMin,
+      };
+    });
+  };
+
+  const trainModel = async (
+    model: tf.Sequential,
+    inputs: tf.Tensor<tf.Rank>,
+    labels: tf.Tensor<tf.Rank>
+  ) => {
+    // Prepare the model for training.
+    model.compile({
+      optimizer: tf.train.adam(),
+      loss: tf.losses.meanSquaredError,
+      metrics: ["mse"],
+    });
+
+    const batchSize = 32;
+    const epochs = 50;
+
+    return await model.fit(inputs, labels, {
+      batchSize,
+      epochs,
+      shuffle: true,
+      // callbacks: tfvis.show.fitCallbacks(
+      //   { name: 'Training Performance' },
+      //   ['loss', 'mse'],
+      //   { height: 200, callbacks: ['onEpochEnd'] }
+      // )
+    });
+  };
+
   const getData = async () => {
     await fetch(dataUrl)
       .then((res) => res.json())
@@ -71,6 +145,21 @@ const TwoDCurvePage = () => {
       });
   };
 
+  const training = async () => {
+    console.log("@@@@@ summary");
+    const model = createModel();
+
+    console.log("@@@@@ Training Performance");
+    const tensorData = convertToTf(data);
+    const { inputs, labels } = tensorData;
+
+    const h = await trainModel(model, inputs, labels);
+
+    if (h) {
+      setHist(h);
+    }
+  };
+
   useEffect(() => {
     getData();
     console.log("Hello TensorFlow");
@@ -78,50 +167,25 @@ const TwoDCurvePage = () => {
 
   useEffect(() => {
     if (data) {
-      const cleaned = data
-        .map((car: CarType) => ({
-          x: car.Miles_per_Gallon,
-          y: car.Horsepower,
-        }))
-        .filter((car: ChartDataType) => car.x != null && car.y != null);
+      training();
+    }
+  }, [data]);
 
-      const chOpt: ChartType["options"] = {
-        responsive: true,
-        scales: {
-          x: {
-            title: {
-              text: "Horsepower",
-              display: true,
-            },
-            min: Math.min(...cleaned.map((x) => x.x)) - 5,
-            max: Math.max(...cleaned.map((x) => x.x)) + 5,
-          },
-          y: {
-            title: {
-              text: "MPG",
-              display: true,
-            },
-            min: Math.min(...cleaned.map((y) => y.y)) - 5,
-            max: Math.max(...cleaned.map((y) => y.y)) + 5,
-          },
-        },
-      };
-      setChartOpt(chOpt);
-
-      const chData: ChartData<"scatter"> = {
-        labels: ["car"],
+  useEffect(() => {
+    if (hist) {
+      const chData: ChartData<"line"> = {
+        labels: hist.epoch,
         datasets: [
           {
-            label: "car",
-            data: cleaned,
+            label: "epoch",
+            data: hist.history.mse as Array<number>,
           },
         ],
       };
+
       setChartData(chData);
-      console.log("@@@@@ summary");
-      const model = createModel();
     }
-  }, [data]);
+  }, [hist]);
 
   return (
     <>
@@ -131,13 +195,25 @@ const TwoDCurvePage = () => {
       <div
         style={{
           width: "90vw",
-          height: "40vh",
+          height: "fit-content",
           margin: "0 auto",
           background: "#ddd",
         }}
       >
-        {chartData && <Scatter options={chartOpt} data={chartData}></Scatter>}
+        <DataGraph data={data} />
       </div>
+      <div
+        style={{
+          width: "90vw",
+          height: "fit-content",
+          margin: "0 auto",
+          background: "#ddd",
+        }}
+      >
+        {chartData && <Line data={chartData} />}
+      </div>
+      <div>loss : {hist && hist.history.loss[0]}</div>
+      <div>mse : {hist && hist.history.mse[0]}</div>
     </>
   );
 };
