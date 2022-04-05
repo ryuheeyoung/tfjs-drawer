@@ -59,6 +59,7 @@ const TwoDCurvePage = () => {
       <Head>
         <title>2D 데이터로 예측하기(튜토리얼)</title>
       </Head>
+      <h1>#1. 데이터 확인</h1>
       <div
         style={{
           width: "90vw",
@@ -69,6 +70,7 @@ const TwoDCurvePage = () => {
       >
         <DataGraph data={data} />
       </div>
+      <h1>#2. tensorflow용 데이터로 가공</h1>
       <div
         style={{
           width: "90vw",

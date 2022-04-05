@@ -1,10 +1,10 @@
-import { SetStateAction, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import * as tf from "@tensorflow/tfjs";
-import { ChartProps, Line } from "react-chartjs-2";
-import { CarType } from "../../../pages/tutorials/2d-curve";
+import { Line } from "react-chartjs-2";
 
-type ChartType = ChartProps<"line">;
+import { CarType } from "../../../pages/tutorials/2d-curve";
+import { LineType } from "../commons/chart-types";
 
 type PropsType = {
   data: Array<CarType>;
@@ -12,9 +12,9 @@ type PropsType = {
 
 const TfHistory = ({ data }: PropsType) => {
   const [hist, setHist] = useState<tf.History>();
-  const [opt, setOpt] = useState<ChartType["options"]>();
 
-  const [chartData, setChartData] = useState<ChartType["data"]>();
+  const [chartData, setChartData] = useState<LineType["data"]>();
+  const [chartOpt, setChartOpt] = useState<LineType["options"]>();
 
   /**
    * create sequence model
@@ -128,7 +128,32 @@ const TfHistory = ({ data }: PropsType) => {
 
   useEffect(() => {
     if (hist) {
-      const chData: ChartType["data"] = {
+      const opt: LineType["options"] = {
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: "Epoch",
+            },
+          },
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: "Value",
+            },
+            ticks: {
+              format: {
+                minimumFractionDigits: 1,
+              },
+            },
+          },
+        },
+      };
+      setChartOpt(opt);
+
+      console.log(hist.history.mse);
+      const chData: LineType["data"] = {
         labels: hist.epoch,
         datasets: [
           {
@@ -142,7 +167,7 @@ const TfHistory = ({ data }: PropsType) => {
     }
   }, [hist]);
 
-  return <>{chartData && <Line data={chartData} />}</>;
+  return <>{chartData && <Line options={chartOpt} data={chartData} />}</>;
 };
 
 export default TfHistory;

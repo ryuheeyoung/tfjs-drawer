@@ -1,22 +1,17 @@
-import { ChartData, ScatterDataPoint } from "chart.js";
 import { useEffect, useState } from "react";
-import { ChartProps, Scatter } from "react-chartjs-2";
+
+import { Scatter } from "react-chartjs-2";
+
 import { CarType } from "../../../pages/tutorials/2d-curve";
-
-type ChartType = ChartProps<"scatter">;
-
-type ChartDataType = ScatterDataPoint & {
-  x: number;
-  y: number;
-};
+import { ScatterDataType, ScatterType } from "../commons/chart-types";
 
 type PropsType = {
   data: Array<CarType>;
 };
 
 const DataGraph = ({ data }: PropsType) => {
-  const [chartData, setChartData] = useState<ChartType["data"]>();
-  const [chartOpt, setChartOpt] = useState<ChartType["options"]>();
+  const [chartData, setChartData] = useState<ScatterType["data"]>();
+  const [chartOpt, setChartOpt] = useState<ScatterType["options"]>();
 
   useEffect(() => {
     if (data) {
@@ -25,9 +20,9 @@ const DataGraph = ({ data }: PropsType) => {
           x: car.Miles_per_Gallon,
           y: car.Horsepower,
         }))
-        .filter((car: ChartDataType) => car.x != null && car.y != null);
+        .filter((car: ScatterDataType) => car.x != null && car.y != null);
 
-      const chOpt: ChartType["options"] = {
+      const chOpt: ScatterType["options"] = {
         responsive: true,
         scales: {
           x: {
@@ -50,7 +45,7 @@ const DataGraph = ({ data }: PropsType) => {
       };
       setChartOpt(chOpt);
 
-      const chData: ChartData<"scatter"> = {
+      const chData: ScatterType["data"] = {
         labels: ["car"],
         datasets: [
           {
