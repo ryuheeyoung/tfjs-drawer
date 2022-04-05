@@ -1,8 +1,6 @@
 import Head from "next/head";
 import { useEffect, useState } from "react";
 
-import * as tf from "@tensorflow/tfjs";
-
 import {
   Chart as ChartJS,
   LinearScale,
@@ -10,16 +8,21 @@ import {
   LineElement,
   Tooltip,
   Legend,
-  ChartData,
-  ScatterDataPoint,
+  CategoryScale,
 } from "chart.js";
-import { ChartProps, Scatter } from "react-chartjs-2";
+import DataGraph from "../../components/tutorials/2d-curve/data-graph";
+import TfHistory from "../../components/tutorials/2d-curve/tf-history";
 
-ChartJS.register(LinearScale, PointElement, LineElement, Tooltip, Legend);
+ChartJS.register(
+  LinearScale,
+  CategoryScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend
+);
 
-type ChartType = ChartProps<"scatter">;
-
-type CarType = {
+export type CarType = {
   Name: string;
   Miles_per_Gallon?: number;
   Cylinders?: number;
@@ -31,35 +34,10 @@ type CarType = {
   Origin?: string;
 };
 
-type ChartDataType = ScatterDataPoint & {
-  x: number;
-  y: number;
-};
-
 const dataUrl = "https://storage.googleapis.com/tfjs-tutorials/carsData.json";
 
 const TwoDCurvePage = () => {
   const [data, setData] = useState<Array<CarType>>();
-  const [chartData, setChartData] = useState<ChartType["data"]>();
-  const [chartOpt, setChartOpt] = useState<ChartType["options"]>();
-
-  /**
-   *
-   * @returns {tf.Sequential} model
-   */
-  const createModel = () => {
-    // Create a sequential model
-    const model = tf.sequential();
-
-    // Add a single input layer
-    model.add(tf.layers.dense({ inputShape: [1], units: 1, useBias: true }));
-
-    // Add an output layer
-    model.add(tf.layers.dense({ units: 1, useBias: true }));
-
-    model.summary();
-    return model;
-  };
 
   const getData = async () => {
     await fetch(dataUrl)
@@ -76,53 +54,6 @@ const TwoDCurvePage = () => {
     console.log("Hello TensorFlow");
   }, []);
 
-  useEffect(() => {
-    if (data) {
-      const cleaned = data
-        .map((car: CarType) => ({
-          x: car.Miles_per_Gallon,
-          y: car.Horsepower,
-        }))
-        .filter((car: ChartDataType) => car.x != null && car.y != null);
-
-      const chOpt: ChartType["options"] = {
-        responsive: true,
-        scales: {
-          x: {
-            title: {
-              text: "Horsepower",
-              display: true,
-            },
-            min: Math.min(...cleaned.map((x) => x.x)) - 5,
-            max: Math.max(...cleaned.map((x) => x.x)) + 5,
-          },
-          y: {
-            title: {
-              text: "MPG",
-              display: true,
-            },
-            min: Math.min(...cleaned.map((y) => y.y)) - 5,
-            max: Math.max(...cleaned.map((y) => y.y)) + 5,
-          },
-        },
-      };
-      setChartOpt(chOpt);
-
-      const chData: ChartData<"scatter"> = {
-        labels: ["car"],
-        datasets: [
-          {
-            label: "car",
-            data: cleaned,
-          },
-        ],
-      };
-      setChartData(chData);
-      console.log("@@@@@ summary");
-      const model = createModel();
-    }
-  }, [data]);
-
   return (
     <>
       <Head>
@@ -131,12 +62,22 @@ const TwoDCurvePage = () => {
       <div
         style={{
           width: "90vw",
-          height: "40vh",
+          height: "fit-content",
           margin: "0 auto",
           background: "#ddd",
         }}
       >
-        {chartData && <Scatter options={chartOpt} data={chartData}></Scatter>}
+        <DataGraph data={data} />
+      </div>
+      <div
+        style={{
+          width: "90vw",
+          height: "fit-content",
+          margin: "0 auto",
+          background: "#ddd",
+        }}
+      >
+        <TfHistory data={data} />
       </div>
     </>
   );
